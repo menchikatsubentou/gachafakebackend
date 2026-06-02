@@ -19,7 +19,50 @@ The backend handles user auth, player state, and game actions (gacha pulls, dail
 
 ## Architecture
 
-![Architecture Diagram](images/architecture.png)
+```mermaid
+flowchart TD
+    Client(["📱 Client App"])
+
+    subgraph AWS ["☁️ AWS"]
+        subgraph Auth ["Authentication"]
+            Cognito["Amazon Cognito\nUser Pool"]
+        end
+
+        subgraph API ["API Layer"]
+            GW["API Gateway\n+ JWT Authorizer"]
+        end
+
+        subgraph Compute ["Lambda Functions"]
+            L1["getUserProfile\n✅ Live"]
+            L2["getPlayerState\n🔧 Planned"]
+            L3["gachaPull\n🔧 Planned"]
+            L4["dailyReward\n🔧 Planned"]
+        end
+
+        subgraph Data ["Data Layer"]
+            DB[("DynamoDB\nPlayer Table")]
+        end
+
+        subgraph Security ["Security & Observability"]
+            WAF["WAF\nRate Limiting"]
+            CW["CloudWatch\nAlarms & Logs"]
+        end
+    end
+
+    Client -->|"HTTPS request"| WAF
+    WAF --> GW
+    Client -->|"Login / Get JWT"| Cognito
+    Cognito -->|"Validates JWT"| GW
+
+    GW -->|"GET /profile"| L1
+    GW -->|"GET /player"| L2
+    GW -->|"POST /gacha/pull"| L3
+    GW -->|"POST /daily"| L4
+
+    L2 & L3 & L4 -->|"Read / Write"| DB
+
+    L1 & L2 & L3 & L4 --> CW
+```
 
 | Layer | Service | Purpose |
 |---|---|---|
