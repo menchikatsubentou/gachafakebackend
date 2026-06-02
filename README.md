@@ -1,186 +1,134 @@
-# gachafakebackend
-Simulating a fake gacha backend using AWS services. 
-# Fake Gacha Backend Security Project
+# Gacha Backend Security Project
 
-## Overview
+> A simulated mobile game backend built to demonstrate real-world AWS cloud security — not a game, but the kind of backend attackers actually target.
 
-This project is a simulated mobile game backend designed to demonstrate practical backend security and cloud security concepts using AWS.
-
-The goal is not to build a real game, but to design and defend a realistic API-driven backend that resembles systems commonly targeted by attackers.
-
-This project focuses on:
-- Authentication and authorization
-- API security
-- JWT validation
-- Secure backend architecture
-- Abuse prevention
-- AWS-native security controls
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-Serverless-FF9900?logo=amazonaws&logoColor=white)
+![Status](https://img.shields.io/badge/Status-In%20Progress-yellow)
+![License](https://img.shields.io/badge/License-MIT-green)
 
 ---
 
-## Project Goals
+## What This Is
 
-The backend simulates systems commonly found in gacha/mobile games, including:
+Most security projects explain attacks in theory. This one builds the actual target system — a gacha game backend — and then demonstrates how to break it and defend it using AWS-native controls.
 
-- User authentication and session management
-- Player profile handling
-- Inventory and currency systems
-- Daily rewards and gacha actions
-- Monitoring and abuse detection
-
-Security goals include:
-- Preventing unauthorized API access
-- Understanding IDOR vulnerabilities
-- Preventing token replay attacks
-- Defending against API abuse and automation
-- Correct authentication vs authorization handling
+The backend handles user auth, player state, and game actions (gacha pulls, daily rewards). Every component is chosen because it mirrors a real attack surface: IDOR vulnerabilities, token replay, API abuse, and business logic attacks.
 
 ---
 
-# Current Architecture
+## Architecture
 
-```text
-Client Application
-        ↓
-Amazon Cognito
-        ↓
-API Gateway (JWT Authorizer)
-        ↓
-AWS Lambda
-        ↓
-Backend Logic
+![Architecture Diagram](images/architecture.png)
+
+| Layer | Service | Purpose |
+|---|---|---|
+| Auth | Amazon Cognito | User pool, OAuth 2.0, JWT issuance |
+| API | API Gateway (HTTP) | JWT authorizer, route management |
+| Logic | AWS Lambda (Python) | Serverless game logic |
+| Data | DynamoDB | Player state storage |
+| Security | WAF + CloudWatch | Rate limiting, abuse detection |
+
+---
+
+## Security Concepts Demonstrated
+
+### Built
+- **JWT validation** — API Gateway verifies signature, issuer, audience, and expiry on every request
+- **Auth vs AuthZ** — Cognito handles authentication; Lambda enforces authorization logic
+- **OAuth 2.0 flows** — Authorization Code Grant vs Implicit Grant (and why Implicit is weaker)
+
+### In Progress
+- **IDOR prevention** — Ensuring users can only access their own player data
+- **Token replay defense** — Detecting and blocking replayed valid tokens
+- **Rate limiting** — API throttling + WAF rules to stop automated abuse
+- **Business logic attacks** — Preventing duplicate daily reward claims, gacha bot detection
+
+---
+
+## Tech Stack
+
+- **Cloud:** AWS (Cognito, API Gateway, Lambda, DynamoDB, CloudWatch, WAF)
+- **Language:** Python 3.12
+- **Auth:** OAuth 2.0, JWT (RS256)
+- **IaC:** AWS CDK *(planned)*
+
+---
+
+## Project Progress
+
+### Phase 1 — Authentication Layer ✅
+- [x] Cognito User Pool with email sign-in
+- [x] OAuth 2.0 Authorization Code Grant flow
+- [x] HTTP API Gateway with JWT Authorizer
+- [x] Protected `GET /profile` route (Lambda)
+- [x] JWT validation: signature, issuer, audience, expiry
+
+### Phase 2 — Player State (In Progress)
+- [ ] DynamoDB Player table (userId, gems, stamina, inventory)
+- [ ] `GET /player` — fetch player state
+- [ ] `POST /gacha/pull` — gacha logic with abuse prevention
+- [ ] `POST /daily` — daily reward with idempotency check
+
+### Phase 3 — Security Controls
+- [ ] API Gateway throttling + WAF rate limiting
+- [ ] CloudWatch alarms for abuse detection
+- [ ] IDOR attack demo + fix
+- [ ] CDK infrastructure as code
+
+---
+
+## API Endpoints
+
+| Method | Route | Auth | Status |
+|---|---|---|---|
+| GET | `/profile` | JWT required | ✅ Live |
+| GET | `/player` | JWT required | 🔧 Planned |
+| POST | `/gacha/pull` | JWT required | 🔧 Planned |
+| POST | `/daily` | JWT required | 🔧 Planned |
+
+---
+
+## Key Security Design Decisions
+
+**Why Cognito instead of custom auth?**
+AWS Cognito handles token rotation, MFA, and brute force protection out of the box. Rolling custom auth for a security-focused project would be ironic.
+
+**Why JWT at the API Gateway layer?**
+Validating tokens at the gateway means Lambda never executes on unauthenticated requests. Zero unauthorized compute cost, and a clear separation of concerns.
+
+**Why serverless for a security demo?**
+Lambda's per-invocation model makes rate limiting and abuse detection more visible — you can directly observe how many times a function is called, by whom, and trigger alarms on anomalies via CloudWatch.
+
+---
+
+## Setup
+
+> Prerequisites: AWS account, AWS CLI configured, Python 3.12
+
+```bash
+# Clone the repo
+git clone https://github.com/menchikatsubentou/gachafakebackend.git
+cd gachafakebackend
+
+# Deploy Lambda functions (manual via AWS Console for now)
+# CDK deployment coming in Phase 3
 ```
 
----
-
-# Technologies Used
-
-- AWS Cognito
-- AWS Lambda
-- AWS API Gateway
-- JWT Authentication
-- Python
-- OAuth 2.0
+Full setup guide coming with CDK implementation.
 
 ---
 
-# Progress Log
+## What I Learned
+
+Building this has made the difference between knowing security concepts and understanding why they exist. Configuring JWT validation at the gateway layer isn't hard — but reasoning through what happens when you skip it (any unauthenticated client hits Lambda, runs code, costs money) made the design decision actually make sense.
 
 ---
 
-## 1. Authentication Setup with Amazon Cognito
+## Roadmap
 
-Configured Amazon Cognito as the identity provider for the backend.
-
-### Configuration
-- Email-based sign in
-- Self-registration enabled
-- Required email attribute
-- Temporary localhost return URL for testing
-
----
-
-## 2. OAuth Flow Research
-
-Studied the differences between:
-- Authorization Code Grant
-- Implicit Grant
-
-### Authorization Code Grant
-Uses a temporary authorization code exchanged server-side for tokens. This prevents exposing tokens directly to the browser.
-
-### Implicit Grant
-Returns tokens directly through the browser URL. This is weaker because tokens may leak through browser history, logs, or extensions.
-
-For temporary testing, Implicit Grant was enabled.
-
----
-
-## 3. AWS Lambda Backend
-
-Created a Lambda function called:
-
-```python
-def lambda_handler(event, context):
-    return {
-        "statusCode": 200,
-        "body": "You reached the backend"
-    }
-```
-
-This confirms that API requests successfully reach the backend service.
-
----
-
-## 4. API Gateway Integration
-
-Configured an HTTP API Gateway and connected it to the Lambda function.
-
-### Route
-```text
-GET /profile
-```
-
-When a client sends a GET request to `/profile`, API Gateway forwards the request to Lambda.
-
-
----
-
-## 5. JWT Authorization
-
-Added JWT authorization to protect the API endpoint.
-
-### JWT Validation Checks
-API Gateway now verifies:
-- JWT signature validity
-- Token expiration
-- Issuer validation
-- Audience/client ID validation
-
-### Identity Source
-```text
-$request.header.Authorization
-```
-
-Only valid Cognito-issued tokens can access protected endpoints.
-
-
----
-
-# Security Concepts Demonstrated
-
-- OAuth 2.0
-- JWT authentication
-- Token validation
-- Secure API architecture
-- Authentication vs authorization
-- API Gateway authorization flow
-- Cloud-native security controls
-
----
-
-# Future Improvements
-
-Planned future additions include:
-- DynamoDB player database
-- Inventory system
-- Gacha pull mechanics
-- CloudWatch logging
-- Rate limiting
-- WAF integration
-- Abuse detection automation
-- Refresh token handling
-- Role-based access control
-
----
-
-# Learning Outcome
-
-This project demonstrates practical understanding of:
-- Real-world backend attack surfaces
-- Secure cloud application design
-- API protection strategies
-- AWS serverless architecture
-- Identity and access management
-
-The focus is on building systems securely rather than only implementing functionality.
+- [ ] Complete Phase 2 game logic with DynamoDB
+- [ ] Demonstrate IDOR attack + fix with video/screenshots
+- [ ] Add WAF rules and CloudWatch dashboards
+- [ ] Deploy full stack with AWS CDK
+- [ ] Write attack scenario walkthroughs for each security concept
