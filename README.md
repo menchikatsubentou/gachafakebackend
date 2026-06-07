@@ -1,6 +1,6 @@
 # Gacha Backend Security Project
 
-> A simulated mobile game backend built to demonstrate real-world AWS cloud security — not a game, but the kind of backend attackers actually target.
+> A simulated mobile game backend built to demonstrate real-world AWS cloud security 
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-Serverless-FF9900?logo=amazonaws&logoColor=white)
