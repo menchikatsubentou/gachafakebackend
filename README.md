@@ -15,6 +15,8 @@ Most security projects explain attacks in theory. This one builds the actual tar
 
 The backend handles user auth, player state, and game actions (gacha pulls, daily rewards). Every component is chosen because it mirrors a real attack surface: IDOR vulnerabilities, token replay, API abuse, and business logic attacks.
 
+Google Docs Writeup: https://docs.google.com/document/d/1hNqS2u34GIlzdbPa0w67J0EPErJ82YEISMYcwPndvg4/edit?tab=t.0#heading=h.j81g4m49vl4a
+
 ---
 
 ## Architecture
