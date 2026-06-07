@@ -35,7 +35,7 @@ flowchart TD
         subgraph Compute ["Lambda Functions"]
             L1["getUserProfile\n✅ Live"]
             L2["getPlayerState\n🔧 Planned"]
-            L3["gachaPull\n🔧 Planned"]
+            L3["gachaPull\n✅ Live"]
             L4["dailyReward\n🔧 Planned"]
         end
 
@@ -56,7 +56,7 @@ flowchart TD
 
     GW -->|"GET /profile"| L1
     GW -->|"GET /player"| L2
-    GW -->|"POST /gacha/pull"| L3
+    GW -->|"POST /gacha"| L3
     GW -->|"POST /daily"| L4
 
     L2 & L3 & L4 -->|"Read / Write"| DB
@@ -108,9 +108,9 @@ flowchart TD
 - [x] JWT validation: signature, issuer, audience, expiry
 
 ### Phase 2 — Player State (In Progress)
-- [ ] DynamoDB Player table (userId, gems, stamina, inventory)
-- [ ] `GET /player` — fetch player state
-- [ ] `POST /gacha/pull` — gacha logic with abuse prevention
+- [x] DynamoDB Player table (userId, gems, stamina, inventory)
+- [x] `GET /player` — fetch player state
+- [x] `POST /gacha` — gacha logic with abuse prevention
 - [ ] `POST /daily` — daily reward with idempotency check
 
 ### Phase 3 — Security Controls
@@ -127,7 +127,7 @@ flowchart TD
 |---|---|---|---|
 | GET | `/profile` | JWT required | ✅ Live |
 | GET | `/player` | JWT required | 🔧 Planned |
-| POST | `/gacha/pull` | JWT required | 🔧 Planned |
+| POST | `/gacha` | JWT required | ✅ Live |
 | POST | `/daily` | JWT required | 🔧 Planned |
 
 ---
