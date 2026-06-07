@@ -172,7 +172,7 @@ Building this has made the difference between knowing security concepts and unde
 
 ## Roadmap
 
-- [ ] Complete Phase 2 game logic with DynamoDB
+- [x] Complete Phase 2 game logic with DynamoDB
 - [ ] Demonstrate IDOR attack + fix with video/screenshots
 - [ ] Add WAF rules and CloudWatch dashboards
 - [ ] Deploy full stack with AWS CDK
