@@ -1,10 +1,10 @@
 # Gacha Backend Security Project
 
-> A simulated mobile game backend built to demonstrate real-world AWS cloud security 
+> A simulated mobile game backend built to demonstrate real-world AWS cloud security skills.
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-Serverless-FF9900?logo=amazonaws&logoColor=white)
-![Status](https://img.shields.io/badge/Status-In%20Progress-yellow)
+![Status](https://img.shields.io/badge/Status-Complete-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ---
@@ -13,9 +13,9 @@
 
 Most security projects explain attacks in theory. This one builds the actual target system — a gacha game backend — and then demonstrates how to break it and defend it using AWS-native controls.
 
-The backend handles user auth, player state, and game actions (gacha pulls, daily rewards). Every component is chosen because it mirrors a real attack surface: IDOR vulnerabilities, token replay, API abuse, and business logic attacks.
+The backend handles user authentication, player state, and game actions (gacha pulls). Every component is chosen because it mirrors a real attack surface: IDOR vulnerabilities, token replay, API abuse, and business logic attacks.
 
-Google Docs Writeup: https://docs.google.com/document/d/1hNqS2u34GIlzdbPa0w67J0EPErJ82YEISMYcwPndvg4/edit?tab=t.0#heading=h.j81g4m49vl4a
+📄 **Full writeup (with screenshots):** [Google Docs](https://docs.google.com/document/d/1hNqS2u34GIlzdbPa0w67J0EPErJ82YEISMYcwPndvg4/edit?tab=t.0#heading=h.j81g4m49vl4a)
 
 ---
 
@@ -23,103 +23,83 @@ Google Docs Writeup: https://docs.google.com/document/d/1hNqS2u34GIlzdbPa0w67J0E
 
 ```mermaid
 flowchart TD
-    Client(["📱 Client App"])
+    Client(["📱 Client App (Postman)"])
 
     subgraph AWS ["☁️ AWS"]
         subgraph Auth ["Authentication"]
             Cognito["Amazon Cognito\nUser Pool"]
         end
 
+        subgraph Security ["Security Layer"]
+            WAF["AWS WAF\nRate Limiting"]
+        end
+
         subgraph API ["API Layer"]
-            GW["API Gateway\n+ JWT Authorizer"]
+            GW["REST API Gateway\n+ Cognito Authorizer"]
         end
 
         subgraph Compute ["Lambda Functions"]
-            L1["getUserProfile\n✅ Live"]
-            L2["getPlayerState\n🔧 Planned"]
-            L3["gachaPull\n✅ Live"]
-            L4["dailyReward\n🔧 Planned"]
+            L1["getUserProfile\n✅ GET /profile"]
+            L3["gachaPull\n✅ POST /gacha"]
         end
 
         subgraph Data ["Data Layer"]
-            DB[("DynamoDB\nPlayer Table")]
+            DB[("DynamoDB\nPlayerProfile Table")]
         end
 
-        subgraph Security ["Security & Observability"]
-            WAF["WAF\nRate Limiting"]
-            CW["CloudWatch\nAlarms & Logs"]
+        subgraph Observability ["Observability"]
+            CW["CloudWatch\nAlarms"]
         end
     end
 
     Client -->|"HTTPS request"| WAF
-    WAF --> GW
+    WAF -->|"Passes if under rate limit"| GW
     Client -->|"Login / Get JWT"| Cognito
     Cognito -->|"Validates JWT"| GW
 
     GW -->|"GET /profile"| L1
-    GW -->|"GET /player"| L2
     GW -->|"POST /gacha"| L3
-    GW -->|"POST /daily"| L4
 
-    L2 & L3 & L4 -->|"Read / Write"| DB
-
-    L1 & L2 & L3 & L4 --> CW
+    L1 & L3 -->|"Read / Write"| DB
+    WAF -->|"BlockedRequests metric"| CW
 ```
 
 | Layer | Service | Purpose |
 |---|---|---|
 | Auth | Amazon Cognito | User pool, OAuth 2.0, JWT issuance |
-| API | API Gateway (HTTP) | JWT authorizer, route management |
+| Security | AWS WAF | Rate limiting, bot protection |
+| API | REST API Gateway | Cognito authorizer, route management |
 | Logic | AWS Lambda (Python) | Serverless game logic |
 | Data | DynamoDB | Player state storage |
-| Security | WAF + CloudWatch | Rate limiting, abuse detection |
+| Observability | CloudWatch | Alarm on blocked requests |
 
 ---
 
 ## Security Concepts Demonstrated
 
-### Built
-- **JWT validation** — API Gateway verifies signature, issuer, audience, and expiry on every request
-- **Auth vs AuthZ** — Cognito handles authentication; Lambda enforces authorization logic
-- **OAuth 2.0 flows** — Authorization Code Grant vs Implicit Grant (and why Implicit is weaker)
+### Authentication & Authorization
+- **JWT validation** — REST API Gateway verifies signature, issuer, audience, and expiry on every request before Lambda executes
+- **Auth vs AuthZ** — Cognito handles authentication; Lambda enforces authorization by extracting identity from the verified JWT, never from client-supplied parameters
+- **OAuth 2.0 flows** — Authorization Code Grant vs Implicit Grant and why Implicit is weaker (token exposed in browser URL)
 
-### In Progress
-- **IDOR prevention** — Ensuring users can only access their own player data
-- **Token replay defense** — Detecting and blocking replayed valid tokens
-- **Rate limiting** — API throttling + WAF rules to stop automated abuse
-- **Business logic attacks** — Preventing duplicate daily reward claims, gacha bot detection
+### Attack Defense
+- **IDOR prevention** — userId is always extracted from the signed JWT token, never from URL parameters. A second test user demonstrates the attack fails — the attacker receives their own data regardless of what userId they pass in the request
+- **API abuse / business logic attacks** — WAF rate-based rule blocks IPs exceeding 100 requests per 5 minutes, preventing automated gacha farming
+- **Token replay mitigation** — Cognito JWT tokens expire after 1 hour; tokens are transmitted over HTTPS only
+
+### AWS Security Design
+- **Principle of least privilege** — `getUserProfile` Lambda has `DynamoDBReadOnlyAccess`; `gachaPull` Lambda has `DynamoDBFullAccess` — each function gets only what it needs
+- **Defense in depth** — WAF blocks at the network edge before requests reach API Gateway; Cognito authorizer blocks before Lambda executes; Lambda enforces identity from JWT
+- **Observability** — CloudWatch alarm triggers when WAF blocked requests exceed threshold, enabling real-time abuse detection
 
 ---
 
 ## Tech Stack
 
-- **Cloud:** AWS (Cognito, API Gateway, Lambda, DynamoDB, CloudWatch, WAF)
+- **Cloud:** AWS (Cognito, REST API Gateway, Lambda, DynamoDB, WAF, CloudWatch, IAM)
 - **Language:** Python 3.12
 - **Auth:** OAuth 2.0, JWT (RS256)
-- **IaC:** AWS CDK *(planned)*
-
----
-
-## Project Progress
-
-### Phase 1 — Authentication Layer ✅
-- [x] Cognito User Pool with email sign-in
-- [x] OAuth 2.0 Authorization Code Grant flow
-- [x] HTTP API Gateway with JWT Authorizer
-- [x] Protected `GET /profile` route (Lambda)
-- [x] JWT validation: signature, issuer, audience, expiry
-
-### Phase 2 — Player State (In Progress)
-- [x] DynamoDB Player table (userId, gems, stamina, inventory)
-- [x] `GET /player` — fetch player state
-- [x] `POST /gacha` — gacha logic with abuse prevention
-- [ ] `POST /daily` — daily reward with idempotency check
-
-### Phase 3 — Security Controls
-- [ ] API Gateway throttling + WAF rate limiting
-- [ ] CloudWatch alarms for abuse detection
-- [ ] IDOR attack demo + fix
-- [ ] CDK infrastructure as code
+- **Testing:** Postman, Postman Collection Runner
 
 ---
 
@@ -128,52 +108,65 @@ flowchart TD
 | Method | Route | Auth | Status |
 |---|---|---|---|
 | GET | `/profile` | JWT required | ✅ Live |
-| GET | `/player` | JWT required | 🔧 Planned |
 | POST | `/gacha` | JWT required | ✅ Live |
-| POST | `/daily` | JWT required | 🔧 Planned |
+
+---
+
+## Project Progress
+
+### Phase 1 — Authentication Layer ✅
+- [x] Cognito User Pool with email sign-in
+- [x] OAuth 2.0 Implicit Grant for testing, Authorization Code Grant discussion
+- [x] REST API Gateway with native Cognito Authorizer
+- [x] Protected `GET /profile` route
+- [x] JWT validation: signature, issuer, audience, expiry
+
+### Phase 2 — Player State & Game Logic ✅
+- [x] DynamoDB PlayerProfile table (userId partition key, gems, stamina, inventory)
+- [x] `GET /profile` — fetch player state from DynamoDB
+- [x] `POST /gacha` — gem deduction + inventory update via `list_append`
+- [x] IAM least privilege per Lambda function
+- [x] Migrated from HTTP API to REST API Gateway for WAF support
+
+### Phase 3 — Security Controls ✅
+- [x] AWS WAF Web ACL attached to REST API Gateway (dev stage)
+- [x] Rate-based rule: 100 requests per 5 minutes per IP → Block
+- [x] WAF tested with Postman Collection Runner (150 iterations, 0ms delay)
+- [x] CloudWatch alarm on WAF `BlockedRequests` metric → SNS email notification
+- [x] IDOR attack demonstrated and defended with second test user
 
 ---
 
 ## Key Security Design Decisions
 
+**Why REST API Gateway instead of HTTP API?**
+HTTP API does not support WAF attachment. Migrating to REST API was necessary to enable the security layer. The migration also changed the event structure Lambda receives — HTTP API wraps claims under `jwt.claims`, REST API exposes them directly under `authorizer.claims`.
+
 **Why Cognito instead of custom auth?**
-AWS Cognito handles token rotation, MFA, and brute force protection out of the box. Rolling custom auth for a security-focused project would be ironic.
+Cognito handles token rotation, signature verification, and expiry out of the box. Rolling custom JWT validation for a security-focused project would undermine the point — and introduce new attack surfaces.
 
-**Why JWT at the API Gateway layer?**
-Validating tokens at the gateway means Lambda never executes on unauthenticated requests. Zero unauthorized compute cost, and a clear separation of concerns.
+**Why JWT validation at the API Gateway layer?**
+Validating tokens at the gateway means Lambda never executes on unauthenticated requests. Zero unauthorized compute cost, clear separation of concerns, and a consistent enforcement point regardless of which Lambda function is called.
 
-**Why serverless for a security demo?**
-Lambda's per-invocation model makes rate limiting and abuse detection more visible — you can directly observe how many times a function is called, by whom, and trigger alarms on anomalies via CloudWatch.
+**Why WAF instead of just API Gateway throttling?**
+WAF blocks at the network edge before requests reach API Gateway. It also provides sampled request logs showing exactly what was blocked and why, and can be extended with IP blocklists, geo-blocking, and SQL injection rules without touching application code.
 
----
-
-## Setup
-
-> Prerequisites: AWS account, AWS CLI configured, Python 3.12
-
-```bash
-# Clone the repo
-git clone https://github.com/menchikatsubentou/gachafakebackend.git
-cd gachafakebackend
-
-# Deploy Lambda functions (manual via AWS Console for now)
-# CDK deployment coming in Phase 3
-```
-
-Full setup guide coming with CDK implementation.
+**Why DynamoDB instead of RDS?**
+Player lookups are simple key-value operations — one userId maps to one player record. DynamoDB's always-free tier (25GB storage, 25 read/write units) makes it cost-free for a demo project. RDS requires an always-on instance, costing money even when idle.
 
 ---
 
 ## What I Learned
 
-Building this has made the difference between knowing security concepts and understanding why they exist. Configuring JWT validation at the gateway layer isn't hard — but reasoning through what happens when you skip it (any unauthenticated client hits Lambda, runs code, costs money) made the design decision actually make sense.
+Building this made the difference between knowing security concepts and understanding why they exist:
+
+- Configuring JWT validation at the gateway layer isn't hard — but reasoning through what happens when you skip it (any unauthenticated client hits Lambda, runs code, costs money) made the design decision actually make sense
+- IDOR protection isn't about adding validation logic — it's about never trusting client-supplied identifiers in the first place
+- WAF counts all requests regardless of authorization status — failed auth attempts still increment the rate limit counter, which affects how you calibrate thresholds
+- HTTP API and REST API Gateway have meaningfully different event structures for Cognito claims, a subtle difference that causes silent KeyErrors if not caught
 
 ---
 
-## Roadmap
+## Author
 
-- [x] Complete Phase 2 game logic with DynamoDB
-- [ ] Demonstrate IDOR attack + fix with video/screenshots
-- [ ] Add WAF rules and CloudWatch dashboards
-- [ ] Deploy full stack with AWS CDK
-- [ ] Write attack scenario walkthroughs for each security concept
+Daniel Hor Jung Wey — AWS Cloud Practitioner | SAA in progress
