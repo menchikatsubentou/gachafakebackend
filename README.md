@@ -11,7 +11,7 @@
 
 ## What This Is
 
-Most security projects explain attacks in theory. This one builds the actual target system — a gacha game backend — and then demonstrates how to break it and defend it using AWS-native controls.
+This project is aimed to build a simple gacha backend and then demonstrate how to break it and defend it using AWS native controls..
 
 The backend handles user authentication, player state, and game actions (gacha pulls). Every component is chosen because it mirrors a real attack surface: IDOR vulnerabilities, token replay, API abuse, and business logic attacks.
 
@@ -160,9 +160,9 @@ Player lookups are simple key-value operations — one userId maps to one player
 
 Building this made the difference between knowing security concepts and understanding why they exist:
 
-- Configuring JWT validation at the gateway layer isn't hard — but reasoning through what happens when you skip it (any unauthenticated client hits Lambda, runs code, costs money) made the design decision actually make sense
-- IDOR protection isn't about adding validation logic — it's about never trusting client-supplied identifiers in the first place
-- WAF counts all requests regardless of authorization status — failed auth attempts still increment the rate limit counter, which affects how you calibrate thresholds
+- Configuring JWT validation at the gateway layer isn't hard but reasoning through what happens when you skip it (any unauthenticated client hits Lambda, runs code, costs money) made the design decision actually make sense
+- IDOR protection isn't about adding validation logic, it's about never trusting client-supplied identifiers in the first place
+- WAF counts all requests regardless of authorization status, failed auth attempts still increment the rate limit counter, which affects how you calibrate thresholds
 - HTTP API and REST API Gateway have meaningfully different event structures for Cognito claims, a subtle difference that causes silent KeyErrors if not caught
 
 ---
