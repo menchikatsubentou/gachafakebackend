@@ -82,14 +82,14 @@ flowchart TD
 - **OAuth 2.0 flows** — Authorization Code Grant vs Implicit Grant and why Implicit is weaker (token exposed in browser URL)
 
 ### Attack Defense
-- **IDOR prevention** — userId is always extracted from the signed JWT token, never from URL parameters. A second test user demonstrates the attack fails — the attacker receives their own data regardless of what userId they pass in the request
+- **IDOR prevention** — userId is always extracted from the signed JWT token, never from URL parameters. A second test user demonstrates the attack fails. The attacker receives their own data regardless of what userId they pass in the request
 - **API abuse / business logic attacks** — WAF rate-based rule blocks IPs exceeding 100 requests per 5 minutes, preventing automated gacha farming
 - **Token replay mitigation** — Cognito JWT tokens expire after 1 hour; tokens are transmitted over HTTPS only
 
 ### AWS Security Design
 - **Principle of least privilege** — `getUserProfile` Lambda has `DynamoDBReadOnlyAccess`; `gachaPull` Lambda has `DynamoDBFullAccess` — each function gets only what it needs
 - **Defense in depth** — WAF blocks at the network edge before requests reach API Gateway; Cognito authorizer blocks before Lambda executes; Lambda enforces identity from JWT
-- **Observability** — CloudWatch alarm triggers when WAF blocked requests exceed threshold, enabling real-time abuse detection
+- **Observability** — CloudWatch alarm triggers when WAF blocked requests exceed threshold, sending an Email via SNS, enabling real-time abuse detection
 
 ---
 
@@ -142,7 +142,7 @@ flowchart TD
 HTTP API does not support WAF attachment. Migrating to REST API was necessary to enable the security layer. The migration also changed the event structure Lambda receives — HTTP API wraps claims under `jwt.claims`, REST API exposes them directly under `authorizer.claims`.
 
 **Why Cognito instead of custom auth?**
-Cognito handles token rotation, signature verification, and expiry out of the box. Rolling custom JWT validation for a security-focused project would undermine the point — and introduce new attack surfaces.
+Cognito handles token rotation, signature verification, and expiry out of the box. Rolling custom JWT validation for a security-focused project would undermine the point and introduce new attack surfaces.
 
 **Why JWT validation at the API Gateway layer?**
 Validating tokens at the gateway means Lambda never executes on unauthenticated requests. Zero unauthorized compute cost, clear separation of concerns, and a consistent enforcement point regardless of which Lambda function is called.
